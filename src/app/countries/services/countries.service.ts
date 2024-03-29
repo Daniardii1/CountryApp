@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, of, map, tap} from 'rxjs';
+import { Observable, catchError, of, map, delay} from 'rxjs';
 import { Country } from '../interfaces/country';
 import { SearchType } from '../enums/search-type.enum';
 
@@ -16,7 +16,7 @@ export class CountriesService {
 
   public search(type: SearchType, term: string): Observable<Country[]> {
     const url = this.getUrl(`${type}/${term}`);
-    return this.fetchCountries(url);
+    return this.getCountriesRequest(url);
   }
 
   public searchByCode(code: string): Observable<Country | null> {
@@ -32,10 +32,11 @@ export class CountriesService {
     return `${this.apiUrl}/${path}`;
   }
 
-  private fetchCountries(url: string): Observable<Country[]> {
+  private getCountriesRequest(url: string): Observable<Country[]> {
     return this.httpClient.get<Country[]>(url)
       .pipe(
         catchError(() => of([]))
       );
   }
 }
+

@@ -12,13 +12,17 @@ import { SearchType } from '../../enums/search-type.enum';
 export class ByCapitalPageComponent {
 
   public countries: Country[] = [];
+  public isLoading: boolean = false;
 
   constructor(private countriesService: CountriesService) { }
 
   searchCapital(capital: string): void {
+    this.isLoading = true;
+
     this.countriesService.search(SearchType.Capital, capital)
       .subscribe(countries => {
         this.countries = countries;
+        this.isLoading = false;
       });
   }
 }
