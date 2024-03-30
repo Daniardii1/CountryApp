@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { Observable, catchError, of, map, tap} from 'rxjs';
+import { Injectable, OnDestroy, OnInit } from '@angular/core';
+import { Observable, catchError, of, map, tap, BehaviorSubject} from 'rxjs';
 
 import { Country } from '../interfaces/country';
 import { SearchType } from '../interfaces/search-type.enum';
@@ -14,14 +14,21 @@ import { Region } from '../interfaces/region.type';
 export class CountriesService {
 
   private apiUrl: string = 'https://restcountries.com/v3.1';
+  private cacheKey: string = 'cacheStore';
 
-  public cacheStore: CacheStore = {
-    byCapital: { term: '', countries: [] },
-    byCountry: { term: '', countries: [] },
-    byRegion: { region: '', countries: [] }
-  };
+  private cacheStore: BehaviorSubject<CacheStore>;
+  public currentCacheStore: Observable<CacheStore>;
 
-  constructor(private httpClient: HttpClient) { }
+  constructor(private httpClient: HttpClient) {
+    const initialCacheStore = this.loadFromLocalStorage() || {
+      byCapital: { term: '', countries: [] },
+      byCountry: { term: '', countries: [] },
+      byRegion: { region: '', countries: [] }
+    };
+
+    this.cacheStore = new BehaviorSubject(initialCacheStore);
+    this.currentCacheStore = this.cacheStore.asObservable();
+  }
 
   public search(type: SearchType, term: string): Observable<Country[]> {
     const url = this.getUrl(`${type}/${term}`);
@@ -33,7 +40,7 @@ export class CountriesService {
 
   public searchByCode(code: string): Observable<Country | null> {
     const url = this.getUrl(`${SearchType.Code}/${code}`);
-    return this.httpClient.get<Country[]>(url)
+    return this.getCountriesRequest(url)
       .pipe(
         map(countries => countries.length > 0 ? countries[0] : null),
         catchError(() => of(null))
@@ -53,17 +60,31 @@ export class CountriesService {
 
   private storeCountriesInCache(type: SearchType, term: string, countries: Country[]): void {
 
+    const newCacheStore = { ...this.cacheStore.value };
+
     switch (type) {
       case SearchType.Capital:
-        this.cacheStore.byCapital = { term, countries };
+        newCacheStore.byCapital = { term, countries };
         break;
       case SearchType.Country:
-        this.cacheStore.byCountry = { term, countries };
+        newCacheStore.byCountry = { term, countries };
         break;
       case SearchType.Region:
-        this.cacheStore.byRegion = { region: term as Region, countries };
+        newCacheStore.byRegion = { region: term as Region, countries };
         break;
     }
+    this.cacheStore.next(newCacheStore);
+    this.saveToLocalStorage();
+  }
+
+  private saveToLocalStorage(): void {
+    localStorage.setItem(this.cacheKey, JSON.stringify(this.cacheStore.value));
+  }
+
+  private loadFromLocalStorage(): CacheStore | null {
+
+    const data = localStorage.getItem(this.cacheKey);
+    return data ? JSON.parse(data) : null;
   }
 }
 

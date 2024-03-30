@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
-import { CountriesService } from '../../services/countries.service';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
+
 import { Country } from '../../interfaces/country';
 import { SearchType } from '../../interfaces/search-type.enum';
+import { CountriesService } from '../../services/countries.service';
 
 @Component({
   selector: 'countries-by-country-page',
@@ -9,7 +11,9 @@ import { SearchType } from '../../interfaces/search-type.enum';
   styleUrl: './by-country-page.component.css'
 })
 
-export class ByCountryPageComponent implements OnInit {
+export class ByCountryPageComponent implements OnInit, OnDestroy {
+
+  private cacheStoreSubscription?: Subscription;
 
   public countries: Country[] = [];
   public initialTerm: string = '';
@@ -18,17 +22,26 @@ export class ByCountryPageComponent implements OnInit {
   constructor(private countriesService: CountriesService) { }
 
   ngOnInit(): void {
-    this.countries = this.countriesService.cacheStore.byCountry.countries;
-    this.initialTerm = this.countriesService.cacheStore.byCountry.term;
+    this.cacheStoreSubscription = this.countriesService.currentCacheStore.subscribe(cacheStore => {
+      if (!cacheStore.byCountry) return;
+      this.initialTerm = cacheStore.byCountry.term;
+      this.countries = cacheStore.byCountry.countries;
+    });
   }
 
   searchCountry(country: string): void {
-    this.isLoading = true;
 
+    if (country === this.initialTerm && this.countries.length > 0) return;
+
+    this.isLoading = true;
     this.countriesService.search(SearchType.Country, country)
       .subscribe(countries => {
         this.countries = countries;
         this.isLoading = false;
       });
+  }
+
+  ngOnDestroy(): void {
+    this.cacheStoreSubscription?.unsubscribe();
   }
 }

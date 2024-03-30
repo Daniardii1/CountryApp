@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
-import { CountriesService } from '../../services/countries.service';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
+
 import { Country } from '../../interfaces/country';
 import { SearchType } from '../../interfaces/search-type.enum';
+import { CountriesService } from '../../services/countries.service';
 
 @Component({
   selector: 'countries-by-capital-page',
@@ -9,7 +11,9 @@ import { SearchType } from '../../interfaces/search-type.enum';
   styleUrl: './by-capital-page.component.css'
 })
 
-export class ByCapitalPageComponent implements OnInit {
+export class ByCapitalPageComponent implements OnInit, OnDestroy {
+
+  private cacheStoreSubscription?: Subscription;
 
   public countries: Country[] = [];
   public initialTerm: string = '';
@@ -18,17 +22,26 @@ export class ByCapitalPageComponent implements OnInit {
   constructor(private countriesService: CountriesService) { }
 
   ngOnInit(): void {
-    this.initialTerm = this.countriesService.cacheStore.byCapital.term;
-    this.countries = this.countriesService.cacheStore.byCapital.countries;
+    this.cacheStoreSubscription = this.countriesService.currentCacheStore.subscribe(cacheStore => {
+      if (!cacheStore.byCapital) return;
+      this.initialTerm = cacheStore.byCapital.term;
+      this.countries = cacheStore.byCapital.countries;
+    });
   }
 
   searchCapital(capital: string): void {
-    this.isLoading = true;
 
+    if (capital === this.initialTerm && this.countries.length > 0) return;
+
+    this.isLoading = true;
     this.countriesService.search(SearchType.Capital, capital)
       .subscribe(countries => {
         this.countries = countries;
         this.isLoading = false;
       });
+  }
+
+  ngOnDestroy(): void {
+    this.cacheStoreSubscription?.unsubscribe();
   }
 }

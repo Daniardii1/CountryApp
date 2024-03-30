@@ -1,8 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
+
 import { Country } from '../../interfaces/country';
-import { CountriesService } from '../../services/countries.service';
 import { SearchType } from '../../interfaces/search-type.enum';
 import { Region } from '../../interfaces/region.type';
+import { CountriesService } from '../../services/countries.service';
+
 
 @Component({
   selector: 'countries-by-region-page',
@@ -10,7 +13,9 @@ import { Region } from '../../interfaces/region.type';
   styleUrl: './by-region-page.component.css'
 })
 
-export class ByRegionPageComponent implements OnInit {
+export class ByRegionPageComponent implements OnInit, OnDestroy {
+
+  private cacheStoreSubscription?: Subscription;
 
   public countries: Country[] = [];
   public isLoading: boolean = false;
@@ -20,11 +25,16 @@ export class ByRegionPageComponent implements OnInit {
   constructor(private countriesService: CountriesService) { }
 
   ngOnInit(): void {
-    this.countries = this.countriesService.cacheStore.byRegion.countries;
-    this.selectedRegion = this.countriesService.cacheStore.byRegion.region;
+    this.cacheStoreSubscription = this.countriesService.currentCacheStore.subscribe(cacheStore => {
+      if (!cacheStore.byRegion) return;
+      this.countries = cacheStore.byRegion.countries;
+      this.selectedRegion = cacheStore.byRegion.region;
+    });
   }
 
   searchRegion(region: Region): void {
+
+    if (region === this.selectedRegion && this.countries.length > 0) return;
 
     this.isLoading = true;
     this.selectedRegion = region;
@@ -34,5 +44,9 @@ export class ByRegionPageComponent implements OnInit {
         this.countries = countries;
         this.isLoading = false;
       });
+  }
+
+  ngOnDestroy(): void {
+    this.cacheStoreSubscription?.unsubscribe();
   }
 }
